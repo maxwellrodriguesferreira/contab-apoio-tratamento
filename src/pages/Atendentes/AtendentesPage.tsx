@@ -6,6 +6,7 @@ import { formatDateTimeBR } from '../../utils/calculations';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import { Modal } from '../../components/common/Modal';
+import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { Badge } from '../../components/common/Badge';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -24,6 +25,10 @@ export const AtendentesPage: React.FC = () => {
   const [active, setActive] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Modal de Exclusão
+  const [deletingAttendant, setDeletingAttendant] = useState<Attendant | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const loadAttendants = useCallback(() => {
     setAttendants(AttendantService.getAll());
   }, []);
@@ -35,7 +40,6 @@ export const AtendentesPage: React.FC = () => {
   const handleOpenCreate = () => {
     setEditingAttendant(null);
     setName('');
-    // Sugere próximo código automático
     const nextCode = String(attendants.length + 1).padStart(3, '0');
     setCode(nextCode);
     setActive(true);
@@ -93,6 +97,22 @@ export const AtendentesPage: React.FC = () => {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao alterar status.';
       showToast(msg, 'error');
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!user || !isAdmin || !deletingAttendant) return;
+    setIsDeleting(true);
+    try {
+      AttendantService.delete(user, deletingAttendant.id);
+      showToast(`Atendente ${deletingAttendant.name} excluído com sucesso.`, 'info', 'Exclusão Concluída');
+      setDeletingAttendant(null);
+      loadAttendants();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao excluir atendente.';
+      showToast(msg, 'error');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -158,45 +178,78 @@ export const AtendentesPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/20 text-on-surface font-medium">
-              {filteredAttendants.map((a) => (
-                <tr key={a.id} className="hover:bg-surface-container-low/50 transition-colors">
-                  <td className="px-5 py-3 font-mono font-bold text-primary">{a.code}</td>
-                  <td className="px-5 py-3 font-bold text-sm text-on-surface">{a.name}</td>
-                  <td className="px-5 py-3">
-                    {a.active ? (
-                      <Badge variant="success" icon="check">
-                        Ativo
-                      </Badge>
-                    ) : (
-                      <Badge variant="neutral" icon="block">
-                        Inativo
-                      </Badge>
-                    )}
-                  </td>
-                  <td className="px-5 py-3 text-outline text-[11px]">
-                    {formatDateTimeBR(a.createdAt)}
-                  </td>
-                  <td className="px-5 py-3 text-right whitespace-nowrap">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleOpenEdit(a)}
-                        icon="edit"
-                      >
-                        Editar
-                      </Button>
-                      <Button
-                        variant={a.active ? 'destructive' : 'outline'}
-                        size="sm"
-                        onClick={() => handleToggleStatus(a)}
-                      >
-                        {a.active ? 'Desativar' : 'Ativar'}
-                      </Button>
+              {filteredAttendants.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-5 py-8 text-center text-on-surface-variant">
+                    <div className="flex flex-col items-center justify-center">
+                      <span className="material-symbols-outlined text-[28px] text-outline mb-1">
+                        person_off
+                      </span>
+                      <p className="font-semibold text-xs text-on-surface">Nenhum atendente encontrado</p>
+                      <p className="text-[11px] text-outline mt-0.5">
+                        Clique em "Novo Atendente" para realizar o primeiro cadastro.
+                      </p>
                     </div>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredAttendants.map((a) => (
+                  <tr key={a.id} className="hover:bg-surface-container-low/50 transition-colors">
+                    <td className="px-5 py-3 font-mono font-bold text-primary">{a.code}</td>
+                    <td className="px-5 py-3 font-bold text-sm text-on-surface">{a.name}</td>
+                    <td className="px-5 py-3">
+                      {a.active ? (
+                        <Badge variant="success" icon="check">
+                          Ativo
+                        </Badge>
+                      ) : (
+                        <Badge variant="neutral" icon="block">
+                          Inativo
+                        </Badge>
+                      )}
+                    </td>
+                    <td className="px-5 py-3 text-outline text-[11px]">
+                      {formatDateTimeBR(a.createdAt)}
+                    </td>
+                    <td className="px-5 py-3 text-right whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {/* Botão 1: Editar */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenEdit(a)}
+                          icon="edit"
+                          title="Editar atendente"
+                        >
+                          Editar
+                        </Button>
+
+                        {/* Botão 2: Desativar / Ativar */}
+                        <Button
+                          variant={a.active ? 'ghost' : 'outline'}
+                          size="sm"
+                          onClick={() => handleToggleStatus(a)}
+                          icon={a.active ? 'toggle_on' : 'toggle_off'}
+                          title={a.active ? 'Desativar atendente' : 'Reativar atendente'}
+                        >
+                          {a.active ? 'Desativar' : 'Ativar'}
+                        </Button>
+
+                        {/* Botão 3: Excluir */}
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => setDeletingAttendant(a)}
+                          icon="delete"
+                          title="Excluir atendente"
+                        >
+                          Excluir
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -259,6 +312,32 @@ export const AtendentesPage: React.FC = () => {
             </div>
           </form>
         </Modal>
+      )}
+
+      {/* Modal de Confirmação de Exclusão de Atendente */}
+      {deletingAttendant && (
+        <ConfirmDialog
+          isOpen={!!deletingAttendant}
+          onClose={() => setDeletingAttendant(null)}
+          onConfirm={handleConfirmDelete}
+          title="Excluir Atendente?"
+          variant="destructive"
+          confirmLabel="Excluir Atendente"
+          isLoading={isDeleting}
+          description={
+            <div className="flex flex-col gap-2">
+              <p>
+                <strong>Nome:</strong> {deletingAttendant.name}
+              </p>
+              <p>
+                <strong>Código:</strong> {deletingAttendant.code}
+              </p>
+              <p className="mt-2 text-rose-700 font-medium">
+                Tem certeza que deseja remover este cadastro de atendente? Caso ele possua lançamentos históricos de apoio, recomenda-se apenas <strong>Desativar</strong> para preservar a rastreabilidade da drogaria.
+              </p>
+            </div>
+          }
+        />
       )}
     </div>
   );

@@ -128,4 +128,34 @@ export class AttendantService {
 
     return attendant;
   }
+
+  /**
+   * Exclusão de atendente com auditoria
+   */
+  static delete(currentUser: UserProfile, id: string): void {
+    if (currentUser.role !== 'ADMIN') {
+      throw new Error('Acesso negado: Somente administradores podem excluir atendentes.');
+    }
+
+    const attendants = LocalDatabase.getAttendants();
+    const index = attendants.findIndex((a) => a.id === id);
+
+    if (index === -1) {
+      throw new Error('Atendente não encontrado.');
+    }
+
+    const removed = attendants[index];
+    attendants.splice(index, 1);
+    LocalDatabase.saveAttendants(attendants);
+
+    AuditService.logSystemAction(
+      currentUser.id,
+      currentUser.name,
+      currentUser.role,
+      'USER_DISABLED',
+      'ATTENDANT',
+      removed.id,
+      { deletedAttendantName: removed.name, code: removed.code }
+    );
+  }
 }
