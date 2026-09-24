@@ -1,0 +1,22 @@
+export const APP_CONFIG = {
+  storeName: 'Drogaria Central & Clínica Farmacoterapêutica',
+  systemName: 'Apoio ao Tratamento',
+  timezone: 'America/Sao_Paulo',
+  defaultGeminiModel: 'gemini-3.6-flash',
+  supportedModels: ['gemini-3.6-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'],
+  awsRegion: 'us-east-1',
+  geminiSecretId: 'apoio-tratamento/gemini',
+  storageKeys: {
+    authSession: 'apoio_tratamento_session',
+    userProfiles: 'apoio_tratamento_user_profiles',
+    attendants: 'apoio_tratamento_attendants',
+    supports: 'apoio_tratamento_supports',
+    supportAudits: 'apoio_tratamento_support_audits',
+    auditLogs: 'apoio_tratamento_audit_logs',
+    goals: 'apoio_tratamento_goals',
+    aiSettings: 'apoio_tratamento_ai_settings',
+    aiAnalyses: 'apoio_tratamento_ai_analyses',
+    appSettings: 'apoio_tratamento_app_settings',
+    theme: 'apoio_tratamento_theme',
+  },
+};
