@@ -13,6 +13,7 @@ import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { Pagination } from '../../components/common/Pagination';
 import { Badge } from '../../components/common/Badge';
 import { useToast } from '../../contexts/ToastContext';
+import { CloudSyncService } from '../../services/api/cloudSyncService';
 
 export const LancamentosPage: React.FC = () => {
   const { user, isAdmin } = useAuth();
@@ -56,6 +57,8 @@ export const LancamentosPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    const unsubscribe = CloudSyncService.subscribe(loadData);
+    return unsubscribe;
   }, [loadData]);
 
   const attendantsMap = useMemo(() => {

@@ -9,6 +9,7 @@ import { Modal } from '../../components/common/Modal';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { Badge } from '../../components/common/Badge';
 import { useToast } from '../../contexts/ToastContext';
+import { CloudSyncService } from '../../services/api/cloudSyncService';
 
 export const AtendentesPage: React.FC = () => {
   const { user, isAdmin } = useAuth();
@@ -35,6 +36,8 @@ export const AtendentesPage: React.FC = () => {
 
   useEffect(() => {
     loadAttendants();
+    const unsubscribe = CloudSyncService.subscribe(loadAttendants);
+    return unsubscribe;
   }, [loadAttendants]);
 
   const handleOpenCreate = () => {

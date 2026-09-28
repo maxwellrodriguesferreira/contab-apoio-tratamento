@@ -2,8 +2,34 @@ import { dataClient, isCloudConfigured } from './amplifyClient';
 import { LocalDatabase } from '../storage/localDatabase';
 import { Attendant, Goal, TreatmentSupport, TreatmentSupportAudit, UserProfile, AuditLog } from '../../types';
 
+type DataChangeListener = () => void;
+
 export class CloudSyncService {
   private static isSyncing = false;
+  private static listeners = new Set<DataChangeListener>();
+
+  /**
+   * Registra um listener que é executado sempre que os dados são atualizados da nuvem
+   */
+  static subscribe(listener: DataChangeListener): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  /**
+   * Notifica todas as telas para recarregarem os dados
+   */
+  static notifyDataChanged(): void {
+    this.listeners.forEach((listener) => {
+      try {
+        listener();
+      } catch (err) {
+        console.error('Erro ao notificar listener de dados:', err);
+      }
+    });
+  }
 
   /**
    * Sincroniza todos os dados da nuvem AWS (DynamoDB) para o banco local da aplicação
@@ -18,7 +44,7 @@ export class CloudSyncService {
       console.info('🔄 Sincronizando dados com o banco AWS Amplify...');
 
       // 1. Sincronizar Atendentes
-      const { data: cloudAttendants } = await dataClient.models.Attendant.list();
+      const { data: cloudAttendants } = await dataClient.models.Attendant.list({ limit: 1000 });
       if (cloudAttendants && cloudAttendants.length > 0) {
         const mappedAttendants: Attendant[] = cloudAttendants.map((a) => ({
           id: a.id,
@@ -32,7 +58,7 @@ export class CloudSyncService {
       }
 
       // 2. Sincronizar Apoios ao Tratamento
-      const { data: cloudSupports } = await dataClient.models.TreatmentSupport.list();
+      const { data: cloudSupports } = await dataClient.models.TreatmentSupport.list({ limit: 5000 });
       if (cloudSupports && cloudSupports.length > 0) {
         const mappedSupports: TreatmentSupport[] = cloudSupports.map((s) => ({
           id: s.id,
@@ -52,7 +78,7 @@ export class CloudSyncService {
       }
 
       // 3. Sincronizar Metas
-      const { data: cloudGoals } = await dataClient.models.Goal.list();
+      const { data: cloudGoals } = await dataClient.models.Goal.list({ limit: 1000 });
       if (cloudGoals && cloudGoals.length > 0) {
         const mappedGoals: Goal[] = cloudGoals.map((g) => ({
           id: g.id,
@@ -69,7 +95,7 @@ export class CloudSyncService {
       }
 
       // 4. Sincronizar Usuários
-      const { data: cloudUsers } = await dataClient.models.UserProfile.list();
+      const { data: cloudUsers } = await dataClient.models.UserProfile.list({ limit: 1000 });
       if (cloudUsers && cloudUsers.length > 0) {
         const mappedUsers: UserProfile[] = cloudUsers.map((u) => ({
           id: u.id,
@@ -87,7 +113,7 @@ export class CloudSyncService {
       }
 
       // 5. Sincronizar Auditoria de Apoios
-      const { data: cloudSupportAudits } = await dataClient.models.TreatmentSupportAudit.list();
+      const { data: cloudSupportAudits } = await dataClient.models.TreatmentSupportAudit.list({ limit: 1000 });
       if (cloudSupportAudits && cloudSupportAudits.length > 0) {
         const mappedSupportAudits: TreatmentSupportAudit[] = cloudSupportAudits.map((a) => ({
           id: a.id,
@@ -103,7 +129,7 @@ export class CloudSyncService {
       }
 
       // 6. Sincronizar Logs Globais de Auditoria
-      const { data: cloudAuditLogs } = await dataClient.models.AuditLog.list();
+      const { data: cloudAuditLogs } = await dataClient.models.AuditLog.list({ limit: 1000 });
       if (cloudAuditLogs && cloudAuditLogs.length > 0) {
         const mappedAuditLogs: AuditLog[] = cloudAuditLogs.map((l) => ({
           id: l.id,
@@ -121,6 +147,7 @@ export class CloudSyncService {
       }
 
       console.info('✓ Sincronização com o banco AWS concluída com sucesso.');
+      this.notifyDataChanged();
     } catch (e) {
       console.warn('Falha na sincronização com a nuvem AWS (operando com dados locais):', e);
     } finally {

@@ -9,6 +9,7 @@ import { Input } from '../../components/common/Input';
 import { Select } from '../../components/common/Select';
 import { Modal } from '../../components/common/Modal';
 import { Button } from '../../components/common/Button';
+import { CloudSyncService } from '../../services/api/cloudSyncService';
 
 export const AuditoriaPage: React.FC = () => {
   const { isAdmin } = useAuth();
@@ -31,6 +32,8 @@ export const AuditoriaPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    const unsubscribe = CloudSyncService.subscribe(loadData);
+    return unsubscribe;
   }, [loadData]);
 
   const getAttendantName = (id?: string) => {

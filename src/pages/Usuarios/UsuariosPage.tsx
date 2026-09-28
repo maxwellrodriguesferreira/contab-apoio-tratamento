@@ -10,6 +10,7 @@ import { Select } from '../../components/common/Select';
 import { Modal } from '../../components/common/Modal';
 import { Badge } from '../../components/common/Badge';
 import { useToast } from '../../contexts/ToastContext';
+import { CloudSyncService } from '../../services/api/cloudSyncService';
 
 export const UsuariosPage: React.FC = () => {
   const { user: currentUser, isAdmin } = useAuth();
@@ -35,6 +36,8 @@ export const UsuariosPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    const unsubscribe = CloudSyncService.subscribe(loadData);
+    return unsubscribe;
   }, [loadData]);
 
   const handleOpenCreate = () => {

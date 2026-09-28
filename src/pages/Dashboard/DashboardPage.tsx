@@ -5,6 +5,7 @@ import { AttendantService } from '../../services/attendants/attendantService';
 import { GoalService } from '../../services/goals/goalService';
 import { AIService } from '../../services/ai/aiService';
 import { SettingsService } from '../../services/settings/settingsService';
+import { CloudSyncService } from '../../services/api/cloudSyncService';
 import {
   calculateDashboardMetrics,
   calculateAttendantsPerformance,
@@ -60,6 +61,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
 
   useEffect(() => {
     loadData();
+    const unsubscribe = CloudSyncService.subscribe(loadData);
+    return unsubscribe;
   }, [loadData]);
 
   // Cálculos consolidados

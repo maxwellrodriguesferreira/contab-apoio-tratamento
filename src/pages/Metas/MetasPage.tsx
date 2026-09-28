@@ -10,6 +10,7 @@ import { Select } from '../../components/common/Select';
 import { Modal } from '../../components/common/Modal';
 import { Badge } from '../../components/common/Badge';
 import { useToast } from '../../contexts/ToastContext';
+import { CloudSyncService } from '../../services/api/cloudSyncService';
 
 export const MetasPage: React.FC = () => {
   const { user, isAdmin } = useAuth();
@@ -33,6 +34,8 @@ export const MetasPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    const unsubscribe = CloudSyncService.subscribe(loadData);
+    return unsubscribe;
   }, [loadData]);
 
   const attendantsMap = useMemo(() => {

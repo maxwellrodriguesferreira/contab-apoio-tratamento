@@ -13,6 +13,7 @@ import {
 import { exportSupportsToExcel, exportSupportsToCSV } from '../../utils/export';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
+import { CloudSyncService } from '../../services/api/cloudSyncService';
 import {
   BarChart,
   Bar,
@@ -44,6 +45,8 @@ export const RelatoriosPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    const unsubscribe = CloudSyncService.subscribe(loadData);
+    return unsubscribe;
   }, [loadData]);
 
   const metrics = useMemo(
