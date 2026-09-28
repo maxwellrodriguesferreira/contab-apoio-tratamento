@@ -2,6 +2,8 @@ import { LocalDatabase } from '../storage/localDatabase';
 import { UserProfile, UserRole } from '../../types';
 import { AuditService } from '../audit/auditService';
 import { APP_CONFIG } from '../../config';
+import { isCloudConfigured, dataClient } from '../api/amplifyClient';
+import { signIn, signOut, getCurrentUser as getCognitoUser, fetchUserAttributes } from 'aws-amplify/auth';
 
 export class AuthService {
   /**
@@ -36,65 +38,136 @@ export class AuthService {
         { email: user.email }
       );
     }
+    if (isCloudConfigured()) {
+      signOut().catch((e) => console.warn('Aviso ao efetuar signOut no Cognito:', e));
+    }
     localStorage.removeItem(APP_CONFIG.storageKeys.authSession);
   }
 
   /**
-   * Verifica se o sistema possui algum usuário cadastrado.
-   * Se for zero, permite a inicialização segura do Primeiro ADMIN (Bootstrap).
-   */
-  static isInitialSetupNeeded(): boolean {
-    const users = LocalDatabase.getUserProfiles();
-    return users.length === 0;
-  }
-
-  /**
-   * Bootstrap seguro do Primeiro Administrador da Drogaria
-   */
-  static setupFirstAdmin(name: string, email: string): UserProfile {
-    const users = LocalDatabase.getUserProfiles();
-    if (users.length > 0) {
-      throw new Error('O primeiro administrador já foi cadastrado no sistema.');
-    }
-
-    const firstAdmin: UserProfile = {
-      id: `usr-admin-root`,
-      authUserId: `cognito-sub-root-${Date.now()}`,
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      role: 'ADMIN',
-      active: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      lastLoginAt: new Date().toISOString(),
-    };
-
-    users.push(firstAdmin);
-    LocalDatabase.saveUserProfiles(users);
-
-    this.setCurrentUser(firstAdmin);
-
-    AuditService.logSystemAction(
-      firstAdmin.id,
-      firstAdmin.name,
-      firstAdmin.role,
-      'USER_CREATED',
-      'USER',
-      firstAdmin.id,
-      { type: 'INITIAL_BOOTSTRAP_ADMIN', email: firstAdmin.email }
-    );
-
-    return firstAdmin;
-  }
-
-  /**
-   * Autenticação via e-mail e senha
+   * Autenticação via e-mail e senha (AWS Amplify Cognito / DynamoDB com fallback local)
    */
   static async login(email: string, _password: string): Promise<UserProfile> {
+    const cleanEmail = email.trim().toLowerCase();
+
+    // Se estiver conectado à nuvem AWS Amplify
+    if (isCloudConfigured()) {
+      try {
+        const signInResult = await signIn({
+          username: cleanEmail,
+          password: _password,
+        });
+
+        if (!signInResult.isSignedIn && signInResult.nextStep.signInStep !== 'DONE') {
+          throw new Error(`Etapa de login pendente no Cognito: ${signInResult.nextStep.signInStep}`);
+        }
+
+        const cognitoUser = await getCognitoUser();
+        const attributes = await fetchUserAttributes().catch(() => ({}));
+
+        // Buscar registro do usuário no banco DynamoDB (UserProfile)
+        const { data: profiles } = await dataClient.models.UserProfile.list({
+          filter: { email: { eq: cleanEmail } },
+        });
+
+        let userProfile: UserProfile;
+
+        if (profiles && profiles.length > 0) {
+          const dbUser = profiles[0];
+          if (!dbUser.active) {
+            await signOut().catch(() => {});
+            AuditService.logSystemAction(
+              dbUser.id,
+              dbUser.name,
+              (dbUser.role as UserRole) || 'ATENDENTE',
+              'LOGIN_FAILED',
+              'AUTH',
+              dbUser.id,
+              { reason: 'Usuário desativado no banco AWS' }
+            );
+            throw new Error('Usuário desativado. Entre em contato com o administrador.');
+          }
+
+          // Atualizar último login
+          const now = new Date().toISOString();
+          await dataClient.models.UserProfile.update({
+            id: dbUser.id,
+            lastLoginAt: now,
+          }).catch(() => {});
+
+          userProfile = {
+            id: dbUser.id,
+            authUserId: cognitoUser.userId,
+            name: dbUser.name,
+            email: dbUser.email,
+            role: (dbUser.role as UserRole) || 'ATENDENTE',
+            active: dbUser.active,
+            attendantId: dbUser.attendantId || undefined,
+            createdAt: dbUser.createdAt,
+            updatedAt: dbUser.updatedAt,
+            lastLoginAt: now,
+          };
+        } else {
+          // Usuário autenticado no Cognito mas sem registro prévio na tabela UserProfile
+          const userAttrs = attributes as Record<string, string | undefined>;
+          const userName = userAttrs.name || userAttrs.email || cleanEmail.split('@')[0];
+          const now = new Date().toISOString();
+          
+          const newDbUser = await dataClient.models.UserProfile.create({
+            authUserId: cognitoUser.userId,
+            name: userName,
+            email: cleanEmail,
+            role: 'ADMIN',
+            active: true,
+            lastLoginAt: now,
+          });
+
+          userProfile = {
+            id: newDbUser.data?.id || `usr-${Date.now()}`,
+            authUserId: cognitoUser.userId,
+            name: userName,
+            email: cleanEmail,
+            role: 'ADMIN',
+            active: true,
+            createdAt: now,
+            updatedAt: now,
+            lastLoginAt: now,
+          };
+        }
+
+        this.setCurrentUser(userProfile);
+
+        AuditService.logSystemAction(
+          userProfile.id,
+          userProfile.name,
+          userProfile.role,
+          'LOGIN',
+          'AUTH',
+          userProfile.id,
+          { email: userProfile.email, provider: 'AWS_COGNITO_DYNAMODB' }
+        );
+
+        return userProfile;
+      } catch (err: unknown) {
+        AuditService.logSystemAction(
+          'anonymous',
+          'Tentativa de Login AWS',
+          'ATENDENTE',
+          'LOGIN_FAILED',
+          'AUTH',
+          undefined,
+          { email: cleanEmail, error: err instanceof Error ? err.message : 'Falha ao autenticar no Cognito' }
+        );
+        const msg = err instanceof Error ? err.message : 'E-mail ou senha inválidos.';
+        throw new Error(msg);
+      }
+    }
+
+    // Modo de banco local (fallback para desenvolvimento/testes locais)
     await new Promise((r) => setTimeout(r, 400));
 
     const users = LocalDatabase.getUserProfiles();
-    const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase().trim());
+    const user = users.find((u) => u.email.toLowerCase() === cleanEmail);
 
     if (!user) {
       AuditService.logSystemAction(

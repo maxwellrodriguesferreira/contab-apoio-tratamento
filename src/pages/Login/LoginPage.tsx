@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { AuthService } from '../../services/auth/authService';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import { useToast } from '../../contexts/ToastContext';
@@ -10,21 +9,15 @@ interface LoginPageProps {
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
-  const { login, refreshUser } = useAuth();
+  const { login } = useAuth();
   const { showToast } = useToast();
 
-  const [isInitialSetup, setIsInitialSetup] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [adminName, setAdminName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
-
-  useEffect(() => {
-    setIsInitialSetup(AuthService.isInitialSetupNeeded());
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,22 +25,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setIsLoading(true);
 
     try {
-      if (isInitialSetup) {
-        // Bootstrap do Primeiro Administrador
-        if (!adminName.trim()) {
-          throw new Error('Informe o nome do administrador.');
-        }
-        if (password.length < 8) {
-          throw new Error('A senha deve ter no mínimo 8 caracteres.');
-        }
-        AuthService.setupFirstAdmin(adminName, email);
-        refreshUser();
-        showToast('Primeiro Administrador configurado com sucesso.', 'success', 'Setup Concluído');
-        onLoginSuccess();
-      } else {
-        await login(email, password);
-        onLoginSuccess();
-      }
+      await login(email, password);
+      onLoginSuccess();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'E-mail ou senha inválidos.';
       setErrorMessage(msg);
@@ -82,9 +61,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             Apoio ao Tratamento
           </h1>
           <p className="text-sm text-on-surface-variant mt-1.5 font-medium">
-            {isInitialSetup
-              ? 'Configuração Inicial do Primeiro Administrador'
-              : 'Gestão e acompanhamento de Apoios ao Tratamento'}
+            Gestão e acompanhamento de Apoios ao Tratamento
           </p>
         </div>
 
@@ -96,28 +73,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           </div>
         )}
 
-        {isInitialSetup && (
-          <div className="mb-6 p-3.5 bg-primary/10 border border-primary/20 rounded-xl text-xs text-primary font-medium flex items-center gap-2.5">
-            <span className="material-symbols-outlined text-[20px]">admin_panel_settings</span>
-            <span>
-              Bem-vindo! Cadastre o primeiro Administrador Geral para inicializar o sistema com segurança.
-            </span>
-          </div>
-        )}
-
-        {/* Formulário */}
+        {/* Formulário de Login */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {isInitialSetup && (
-            <Input
-              label="Nome do Administrador"
-              placeholder="Seu nome completo"
-              value={adminName}
-              onChange={(e) => setAdminName(e.target.value)}
-              required
-              icon="person"
-            />
-          )}
-
           <Input
             label="E-mail"
             type="email"
@@ -138,19 +95,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               onChange={(e) => setPassword(e.target.value)}
               required
               icon="lock"
-              autoComplete={isInitialSetup ? 'new-password' : 'current-password'}
+              autoComplete="current-password"
             />
-            {!isInitialSetup && (
-              <div className="flex justify-end mt-1">
-                <button
-                  type="button"
-                  onClick={() => setShowForgotPasswordModal(true)}
-                  className="text-xs font-semibold text-primary hover:underline"
-                >
-                  Esqueci minha senha
-                </button>
-              </div>
-            )}
+            <div className="flex justify-end mt-1">
+              <button
+                type="button"
+                onClick={() => setShowForgotPasswordModal(true)}
+                className="text-xs font-semibold text-primary hover:underline"
+              >
+                Esqueci minha senha
+              </button>
+            </div>
           </div>
 
           <Button
@@ -158,11 +113,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             variant="primary"
             size="lg"
             isLoading={isLoading}
-            loadingText={isInitialSetup ? 'Criando Administrador...' : 'Autenticando...'}
+            loadingText="Autenticando..."
             className="w-full mt-2"
-            icon={isInitialSetup ? 'how_to_reg' : 'login'}
+            icon="login"
           >
-            {isInitialSetup ? 'Criar Primeiro Administrador' : 'Entrar'}
+            Entrar
           </Button>
         </form>
       </div>
