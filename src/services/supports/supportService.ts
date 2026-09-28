@@ -3,6 +3,7 @@ import { TreatmentSupport, UserProfile } from '../../types';
 import { supportSchema } from '../../validators/schemas';
 import { AuditService } from '../audit/auditService';
 import { AIService } from '../ai/aiService';
+import { CloudSyncService } from '../api/cloudSyncService';
 
 export class SupportService {
   static getAll(includeDeleted: boolean = false): TreatmentSupport[] {
@@ -48,6 +49,7 @@ export class SupportService {
 
     supports.push(newSupport);
     LocalDatabase.saveSupports(supports);
+    CloudSyncService.syncSupport(newSupport);
 
     // Auditoria de apoio
     AuditService.logSupportMutation(
@@ -113,6 +115,7 @@ export class SupportService {
     support.version += 1;
 
     LocalDatabase.saveSupports(supports);
+    CloudSyncService.syncSupport(support);
 
     // Auditoria de apoio com valores antigos e novos
     AuditService.logSupportMutation(
@@ -170,6 +173,7 @@ export class SupportService {
     support.version += 1;
 
     LocalDatabase.saveSupports(supports);
+    CloudSyncService.syncSupport(support);
 
     AuditService.logSupportMutation(
       support.id,
@@ -219,6 +223,7 @@ export class SupportService {
     support.version += 1;
 
     LocalDatabase.saveSupports(supports);
+    CloudSyncService.syncSupport(support);
 
     AuditService.logSupportMutation(
       support.id,

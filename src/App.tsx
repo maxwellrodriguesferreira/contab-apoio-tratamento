@@ -13,10 +13,18 @@ import { UsuariosPage } from './pages/Usuarios/UsuariosPage';
 import { AuditoriaPage } from './pages/Auditoria/AuditoriaPage';
 import { ConfiguracoesPage } from './pages/Configuracoes/ConfiguracoesPage';
 import { PerfilPage } from './pages/Perfil/PerfilPage';
+import { CloudSyncService } from './services/api/cloudSyncService';
 
 export const App: React.FC = () => {
   const { isAuthenticated, isAdmin } = useAuth();
   const [currentPath, setCurrentPath] = useState<string>('dashboard');
+
+  // Sincroniza dados com a nuvem AWS quando o usuário estiver autenticado
+  useEffect(() => {
+    if (isAuthenticated) {
+      CloudSyncService.syncAllFromCloud();
+    }
+  }, [isAuthenticated]);
 
   // Sincroniza rota com o hash da URL se desejado
   useEffect(() => {

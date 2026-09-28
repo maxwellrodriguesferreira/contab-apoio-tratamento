@@ -26,7 +26,7 @@ const schema = a.schema({
     })
     .authorization((allow) => [
       allow.group('ADMIN'),
-      allow.authenticated().to(['read']),
+      allow.authenticated(),
     ]),
 
   // 3. Apoios ao Tratamento
@@ -44,7 +44,7 @@ const schema = a.schema({
     })
     .authorization((allow) => [
       allow.group('ADMIN'),
-      allow.authenticated().to(['read']),
+      allow.authenticated(),
     ]),
 
   // 4. Auditoria de Apoios
@@ -58,7 +58,8 @@ const schema = a.schema({
       newValue: a.json(),
     })
     .authorization((allow) => [
-      allow.group('ADMIN').to(['read', 'create']),
+      allow.group('ADMIN'),
+      allow.authenticated(),
     ]),
 
   // 5. Metas Operacionais
@@ -73,7 +74,7 @@ const schema = a.schema({
     })
     .authorization((allow) => [
       allow.group('ADMIN'),
-      allow.authenticated().to(['read']),
+      allow.authenticated(),
     ]),
 
   // 6. Análises de IA
@@ -88,7 +89,7 @@ const schema = a.schema({
     })
     .authorization((allow) => [
       allow.group('ADMIN'),
-      allow.authenticated().to(['read']),
+      allow.authenticated(),
     ]),
 
   // 7. Logs de Auditoria Global
@@ -104,7 +105,8 @@ const schema = a.schema({
       ipAddress: a.string(),
     })
     .authorization((allow) => [
-      allow.group('ADMIN').to(['read', 'create']),
+      allow.group('ADMIN'),
+      allow.authenticated(),
     ]),
 });
 

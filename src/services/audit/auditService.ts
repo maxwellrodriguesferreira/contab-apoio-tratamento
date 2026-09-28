@@ -1,5 +1,6 @@
 import { LocalDatabase } from '../storage/localDatabase';
 import { AuditLog, AuditLogAction, SupportAuditAction, TreatmentSupport, TreatmentSupportAudit, UserRole } from '../../types';
+import { CloudSyncService } from '../api/cloudSyncService';
 
 export class AuditService {
   /**
@@ -34,6 +35,7 @@ export class AuditService {
       logs.length = 1000;
     }
     LocalDatabase.saveAuditLogs(logs);
+    CloudSyncService.syncAuditLog(newLog);
   }
 
   /**
@@ -61,6 +63,7 @@ export class AuditService {
 
     audits.unshift(newAudit);
     LocalDatabase.saveSupportAudits(audits);
+    CloudSyncService.syncSupportAudit(newAudit);
   }
 
   static getAllSystemLogs(): AuditLog[] {

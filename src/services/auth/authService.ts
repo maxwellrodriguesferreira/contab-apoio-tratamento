@@ -4,6 +4,7 @@ import { AuditService } from '../audit/auditService';
 import { APP_CONFIG } from '../../config';
 import { isCloudConfigured, dataClient } from '../api/amplifyClient';
 import { signIn, signOut, confirmSignIn, getCurrentUser as getCognitoUser, fetchUserAttributes } from 'aws-amplify/auth';
+import { CloudSyncService } from '../api/cloudSyncService';
 
 function formatCognitoErrorMessage(err: unknown): string {
   if (!(err instanceof Error)) return 'Erro desconhecido ao autenticar.';
@@ -162,6 +163,7 @@ export class AuthService {
     }
 
     this.setCurrentUser(userProfile);
+    CloudSyncService.syncAllFromCloud();
 
     AuditService.logSystemAction(
       userProfile.id,
@@ -333,6 +335,7 @@ export class AuthService {
 
     users.push(newUser);
     LocalDatabase.saveUserProfiles(users);
+    CloudSyncService.syncUser(newUser);
 
     AuditService.logSystemAction(
       currentUser.id,
@@ -365,6 +368,7 @@ export class AuthService {
     user.active = !user.active;
     user.updatedAt = new Date().toISOString();
     LocalDatabase.saveUserProfiles(users);
+    CloudSyncService.syncUser(user);
 
     AuditService.logSystemAction(
       currentUser.id,
@@ -400,6 +404,7 @@ export class AuthService {
     user.updatedAt = new Date().toISOString();
 
     LocalDatabase.saveUserProfiles(users);
+    CloudSyncService.syncUser(user);
 
     AuditService.logSystemAction(
       currentUser.id,

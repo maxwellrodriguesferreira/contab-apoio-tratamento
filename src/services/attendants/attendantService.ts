@@ -2,6 +2,7 @@ import { LocalDatabase } from '../storage/localDatabase';
 import { Attendant, UserProfile } from '../../types';
 import { attendantSchema } from '../../validators/schemas';
 import { AuditService } from '../audit/auditService';
+import { CloudSyncService } from '../api/cloudSyncService';
 
 export class AttendantService {
   static getAll(): Attendant[] {
@@ -42,6 +43,7 @@ export class AttendantService {
 
     attendants.push(newAttendant);
     LocalDatabase.saveAttendants(attendants);
+    CloudSyncService.syncAttendant(newAttendant);
 
     AuditService.logSystemAction(
       currentUser.id,
@@ -86,6 +88,7 @@ export class AttendantService {
     attendant.updatedAt = new Date().toISOString();
 
     LocalDatabase.saveAttendants(attendants);
+    CloudSyncService.syncAttendant(attendant);
 
     AuditService.logSystemAction(
       currentUser.id,
@@ -115,6 +118,7 @@ export class AttendantService {
     attendant.active = !attendant.active;
     attendant.updatedAt = new Date().toISOString();
     LocalDatabase.saveAttendants(attendants);
+    CloudSyncService.syncAttendant(attendant);
 
     AuditService.logSystemAction(
       currentUser.id,
@@ -147,6 +151,7 @@ export class AttendantService {
     const removed = attendants[index];
     attendants.splice(index, 1);
     LocalDatabase.saveAttendants(attendants);
+    CloudSyncService.deleteAttendant(removed.id);
 
     AuditService.logSystemAction(
       currentUser.id,
