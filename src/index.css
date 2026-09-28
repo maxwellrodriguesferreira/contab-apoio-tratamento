@@ -4,9 +4,126 @@
 
 @layer base {
   :root {
+    /* Primary */
     --color-primary: 0 35 111;
+    --color-primary-container: 30 58 138;
+    --color-primary-fixed: 220 225 255;
+    --color-primary-fixed-dim: 182 196 255;
+    --color-primary-on-container: 144 168 255;
+
+    /* Secondary */
+    --color-secondary: 0 99 152;
+    --color-secondary-container: 91 184 254;
+    --color-secondary-fixed: 204 229 255;
+    --color-secondary-fixed-dim: 147 204 255;
+    --color-secondary-on-container: 0 71 110;
+
+    /* Tertiary */
+    --color-tertiary: 0 49 32;
+    --color-tertiary-container: 0 74 50;
+    --color-tertiary-fixed: 133 248 196;
+    --color-tertiary-fixed-dim: 104 219 169;
+    --color-tertiary-on-container: 74 192 143;
+
+    /* Surface & Background */
     --color-background: 248 249 255;
     --color-surface: 248 249 255;
+    --color-surface-bright: 248 249 255;
+    --color-surface-dim: 204 219 244;
+    --color-surface-variant: 213 227 253;
+    --color-surface-container-lowest: 255 255 255;
+    --color-surface-container-low: 239 244 255;
+    --color-surface-container: 230 238 255;
+    --color-surface-container-high: 221 233 255;
+    --color-surface-container-highest: 213 227 253;
+    --color-surface-tint: 64 89 170;
+
+    /* Content */
+    --color-on-surface: 13 28 47;
+    --color-on-surface-variant: 68 70 81;
+    --color-on-primary: 255 255 255;
+    --color-on-secondary: 255 255 255;
+    --color-on-tertiary: 255 255 255;
+    --color-on-background: 13 28 47;
+
+    /* Outline */
+    --color-outline: 117 118 130;
+    --color-outline-variant: 197 197 211;
+
+    /* States */
+    --color-error: 186 26 26;
+    --color-error-container: 255 218 214;
+    --color-error-on-container: 147 0 10;
+
+    --color-success: 5 150 105;
+    --color-success-light: 220 252 231;
+    --color-success-dark: 21 128 61;
+
+    --color-warning: 217 119 6;
+    --color-warning-light: 254 243 199;
+    --color-warning-dark: 180 83 9;
+  }
+
+  html.dark,
+  .dark {
+    /* Primary (Dark) */
+    --color-primary: 94 139 255;
+    --color-primary-container: 30 58 138;
+    --color-primary-fixed: 220 225 255;
+    --color-primary-fixed-dim: 182 196 255;
+    --color-primary-on-container: 220 225 255;
+
+    /* Secondary (Dark) */
+    --color-secondary: 56 189 248;
+    --color-secondary-container: 3 105 161;
+    --color-secondary-fixed: 204 229 255;
+    --color-secondary-fixed-dim: 147 204 255;
+    --color-secondary-on-container: 224 242 254;
+
+    /* Tertiary (Dark) */
+    --color-tertiary: 52 211 153;
+    --color-tertiary-container: 6 95 70;
+    --color-tertiary-fixed: 133 248 196;
+    --color-tertiary-fixed-dim: 104 219 169;
+    --color-tertiary-on-container: 209 250 229;
+
+    /* Surface & Background (Dark) */
+    --color-background: 10 15 29;
+    --color-surface: 15 23 42;
+    --color-surface-bright: 36 51 80;
+    --color-surface-dim: 10 15 29;
+    --color-surface-variant: 30 41 59;
+    --color-surface-container-lowest: 15 23 42;
+    --color-surface-container-low: 21 31 50;
+    --color-surface-container: 26 38 61;
+    --color-surface-container-high: 33 48 77;
+    --color-surface-container-highest: 41 59 93;
+    --color-surface-tint: 141 162 251;
+
+    /* Content (Dark) */
+    --color-on-surface: 241 245 249;
+    --color-on-surface-variant: 148 163 184;
+    --color-on-primary: 255 255 255;
+    --color-on-secondary: 15 23 42;
+    --color-on-tertiary: 15 23 42;
+    --color-on-background: 241 245 249;
+
+    /* Outline (Dark) */
+    --color-outline: 100 116 139;
+    --color-outline-variant: 46 59 82;
+
+    /* States (Dark) */
+    --color-error: 248 113 113;
+    --color-error-container: 127 29 29;
+    --color-error-on-container: 254 202 202;
+
+    --color-success: 16 185 129;
+    --color-success-light: 6 78 59;
+    --color-success-dark: 52 211 153;
+
+    --color-warning: 251 191 36;
+    --color-warning-light: 120 53 15;
+    --color-warning-dark: 253 230 138;
   }
 
   html,
@@ -14,16 +131,11 @@
     margin: 0;
     padding: 0;
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    background-color: #f8f9ff;
-    color: #0d1c2f;
+    background-color: rgb(var(--color-background));
+    color: rgb(var(--color-on-surface));
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-  }
-
-  .dark html,
-  .dark body {
-    background-color: #0d1c2f;
-    color: #f8f9ff;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 
   /* Material Symbols Custom Size and Alignment */
