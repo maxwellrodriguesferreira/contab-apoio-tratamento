@@ -3,7 +3,16 @@ import { UserProfile, UserRole } from '../../types';
 import { AuditService } from '../audit/auditService';
 import { APP_CONFIG } from '../../config';
 import { isCloudConfigured, dataClient } from '../api/amplifyClient';
-import { signIn, signOut, getCurrentUser as getCognitoUser, fetchUserAttributes } from 'aws-amplify/auth';
+import { signIn, signOut, confirmSignIn, getCurrentUser as getCognitoUser, fetchUserAttributes } from 'aws-amplify/auth';
+
+export class AuthChallengeError extends Error {
+  step: string;
+  constructor(step: string, message: string) {
+    super(message);
+    this.name = 'AuthChallengeError';
+    this.step = step;
+  }
+}
 
 export class AuthService {
   /**
@@ -45,6 +54,119 @@ export class AuthService {
   }
 
   /**
+   * Sincroniza e recupera/cria o perfil no DynamoDB após autenticação no Cognito
+   */
+  private static async syncUserProfileFromCognito(cleanEmail: string): Promise<UserProfile> {
+    const cognitoUser = await getCognitoUser();
+    const attributes = await fetchUserAttributes().catch(() => ({}));
+
+    // Buscar registro do usuário no banco DynamoDB (UserProfile)
+    const { data: profiles } = await dataClient.models.UserProfile.list({
+      filter: { email: { eq: cleanEmail } },
+    });
+
+    let userProfile: UserProfile;
+
+    if (profiles && profiles.length > 0) {
+      const dbUser = profiles[0];
+      if (!dbUser.active) {
+        await signOut().catch(() => {});
+        AuditService.logSystemAction(
+          dbUser.id,
+          dbUser.name,
+          (dbUser.role as UserRole) || 'ATENDENTE',
+          'LOGIN_FAILED',
+          'AUTH',
+          dbUser.id,
+          { reason: 'Usuário desativado no banco AWS' }
+        );
+        throw new Error('Usuário desativado. Entre em contato com o administrador.');
+      }
+
+      // Atualizar último login
+      const now = new Date().toISOString();
+      await dataClient.models.UserProfile.update({
+        id: dbUser.id,
+        lastLoginAt: now,
+      }).catch(() => {});
+
+      userProfile = {
+        id: dbUser.id,
+        authUserId: cognitoUser.userId,
+        name: dbUser.name,
+        email: dbUser.email,
+        role: (dbUser.role as UserRole) || 'ADMIN',
+        active: dbUser.active,
+        attendantId: dbUser.attendantId || undefined,
+        createdAt: dbUser.createdAt,
+        updatedAt: dbUser.updatedAt,
+        lastLoginAt: now,
+      };
+    } else {
+      // Usuário autenticado no Cognito mas sem registro prévio na tabela UserProfile
+      const userAttrs = attributes as Record<string, string | undefined>;
+      const userName = userAttrs.name || userAttrs.email || cleanEmail.split('@')[0];
+      const now = new Date().toISOString();
+      
+      const newDbUser = await dataClient.models.UserProfile.create({
+        authUserId: cognitoUser.userId,
+        name: userName,
+        email: cleanEmail,
+        role: 'ADMIN',
+        active: true,
+        lastLoginAt: now,
+      });
+
+      userProfile = {
+        id: newDbUser.data?.id || `usr-${Date.now()}`,
+        authUserId: cognitoUser.userId,
+        name: userName,
+        email: cleanEmail,
+        role: 'ADMIN',
+        active: true,
+        createdAt: now,
+        updatedAt: now,
+        lastLoginAt: now,
+      };
+    }
+
+    this.setCurrentUser(userProfile);
+
+    AuditService.logSystemAction(
+      userProfile.id,
+      userProfile.name,
+      userProfile.role,
+      'LOGIN',
+      'AUTH',
+      userProfile.id,
+      { email: userProfile.email, provider: 'AWS_COGNITO_DYNAMODB' }
+    );
+
+    return userProfile;
+  }
+
+  /**
+   * Conclui a definição de nova senha no Cognito (primeiro acesso)
+   */
+  static async completeNewPassword(newPassword: string, email: string): Promise<UserProfile> {
+    const cleanEmail = email.trim().toLowerCase();
+    try {
+      const result = await confirmSignIn({
+        challengeResponse: newPassword,
+      });
+
+      if (!result.isSignedIn && result.nextStep.signInStep !== 'DONE') {
+        throw new Error(`Etapa pendente após definir senha: ${result.nextStep.signInStep}`);
+      }
+
+      return await this.syncUserProfileFromCognito(cleanEmail);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Falha ao redefinir a nova senha.';
+      throw new Error(msg);
+    }
+  }
+
+  /**
    * Autenticação via e-mail e senha (AWS Amplify Cognito / DynamoDB com fallback local)
    */
   static async login(email: string, _password: string): Promise<UserProfile> {
@@ -58,97 +180,23 @@ export class AuthService {
           password: _password,
         });
 
+        if (signInResult.nextStep.signInStep === 'CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED') {
+          throw new AuthChallengeError(
+            'CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED',
+            'É necessário cadastrar uma nova senha definitiva no primeiro acesso.'
+          );
+        }
+
         if (!signInResult.isSignedIn && signInResult.nextStep.signInStep !== 'DONE') {
           throw new Error(`Etapa de login pendente no Cognito: ${signInResult.nextStep.signInStep}`);
         }
 
-        const cognitoUser = await getCognitoUser();
-        const attributes = await fetchUserAttributes().catch(() => ({}));
-
-        // Buscar registro do usuário no banco DynamoDB (UserProfile)
-        const { data: profiles } = await dataClient.models.UserProfile.list({
-          filter: { email: { eq: cleanEmail } },
-        });
-
-        let userProfile: UserProfile;
-
-        if (profiles && profiles.length > 0) {
-          const dbUser = profiles[0];
-          if (!dbUser.active) {
-            await signOut().catch(() => {});
-            AuditService.logSystemAction(
-              dbUser.id,
-              dbUser.name,
-              (dbUser.role as UserRole) || 'ATENDENTE',
-              'LOGIN_FAILED',
-              'AUTH',
-              dbUser.id,
-              { reason: 'Usuário desativado no banco AWS' }
-            );
-            throw new Error('Usuário desativado. Entre em contato com o administrador.');
-          }
-
-          // Atualizar último login
-          const now = new Date().toISOString();
-          await dataClient.models.UserProfile.update({
-            id: dbUser.id,
-            lastLoginAt: now,
-          }).catch(() => {});
-
-          userProfile = {
-            id: dbUser.id,
-            authUserId: cognitoUser.userId,
-            name: dbUser.name,
-            email: dbUser.email,
-            role: (dbUser.role as UserRole) || 'ATENDENTE',
-            active: dbUser.active,
-            attendantId: dbUser.attendantId || undefined,
-            createdAt: dbUser.createdAt,
-            updatedAt: dbUser.updatedAt,
-            lastLoginAt: now,
-          };
-        } else {
-          // Usuário autenticado no Cognito mas sem registro prévio na tabela UserProfile
-          const userAttrs = attributes as Record<string, string | undefined>;
-          const userName = userAttrs.name || userAttrs.email || cleanEmail.split('@')[0];
-          const now = new Date().toISOString();
-          
-          const newDbUser = await dataClient.models.UserProfile.create({
-            authUserId: cognitoUser.userId,
-            name: userName,
-            email: cleanEmail,
-            role: 'ADMIN',
-            active: true,
-            lastLoginAt: now,
-          });
-
-          userProfile = {
-            id: newDbUser.data?.id || `usr-${Date.now()}`,
-            authUserId: cognitoUser.userId,
-            name: userName,
-            email: cleanEmail,
-            role: 'ADMIN',
-            active: true,
-            createdAt: now,
-            updatedAt: now,
-            lastLoginAt: now,
-          };
+        return await this.syncUserProfileFromCognito(cleanEmail);
+      } catch (err: unknown) {
+        if (err instanceof AuthChallengeError) {
+          throw err;
         }
 
-        this.setCurrentUser(userProfile);
-
-        AuditService.logSystemAction(
-          userProfile.id,
-          userProfile.name,
-          userProfile.role,
-          'LOGIN',
-          'AUTH',
-          userProfile.id,
-          { email: userProfile.email, provider: 'AWS_COGNITO_DYNAMODB' }
-        );
-
-        return userProfile;
-      } catch (err: unknown) {
         AuditService.logSystemAction(
           'anonymous',
           'Tentativa de Login AWS',

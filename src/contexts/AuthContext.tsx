@@ -10,6 +10,7 @@ interface AuthContextType {
   isAttendant: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<UserProfile>;
+  completeNewPassword: (newPassword: string, email: string) => Promise<UserProfile>;
   logout: () => void;
   refreshUser: () => void;
 }
@@ -48,6 +49,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const completeNewPassword = async (newPassword: string, email: string): Promise<UserProfile> => {
+    setIsLoading(true);
+    try {
+      const loggedUser = await AuthService.completeNewPassword(newPassword, email);
+      setUser(loggedUser);
+      showToast(`Senha atualizada com sucesso. Bem-vindo, ${loggedUser.name}!`, 'success', 'Acesso Concluído');
+      return loggedUser;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao redefinir nova senha.';
+      showToast(msg, 'error', 'Falha ao Definir Senha');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const logout = () => {
     AuthService.clearSession();
     setUser(null);
@@ -66,6 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isAttendant: !!user && user.role === 'ATENDENTE',
     isLoading,
     login,
+    completeNewPassword,
     logout,
     refreshUser,
   };

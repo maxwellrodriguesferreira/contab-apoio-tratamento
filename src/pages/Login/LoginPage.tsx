@@ -3,17 +3,21 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import { useToast } from '../../contexts/ToastContext';
+import { AuthChallengeError } from '../../services/auth/authService';
 
 interface LoginPageProps {
   onLoginSuccess: () => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
-  const { login } = useAuth();
+  const { login, completeNewPassword } = useAuth();
   const { showToast } = useToast();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [isNewPasswordRequired, setIsNewPasswordRequired] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
@@ -25,11 +29,33 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setIsLoading(true);
 
     try {
-      await login(email, password);
-      onLoginSuccess();
+      if (isNewPasswordRequired) {
+        if (newPassword.length < 8) {
+          throw new Error('A nova senha deve possuir no mínimo 8 caracteres.');
+        }
+        if (newPassword !== confirmNewPassword) {
+          throw new Error('A confirmação de senha não confere.');
+        }
+        await completeNewPassword(newPassword, email);
+        onLoginSuccess();
+      } else {
+        await login(email, password);
+        onLoginSuccess();
+      }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'E-mail ou senha inválidos.';
-      setErrorMessage(msg);
+      if (err instanceof AuthChallengeError && err.step === 'CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED') {
+        setIsNewPasswordRequired(true);
+        setPassword('');
+        setErrorMessage('');
+        showToast(
+          'Primeiro acesso detectado. Por favor, cadastre uma nova senha definitiva.',
+          'info',
+          'Nova Senha Requerida'
+        );
+      } else {
+        const msg = err instanceof Error ? err.message : 'E-mail ou senha inválidos.';
+        setErrorMessage(msg);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -45,6 +71,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     );
   };
 
+  const handleBackToLogin = () => {
+    setIsNewPasswordRequired(false);
+    setNewPassword('');
+    setConfirmNewPassword('');
+    setErrorMessage('');
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col justify-center items-center p-4 sm:p-6 relative overflow-hidden">
       {/* Background Decorativo */}
@@ -55,13 +88,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         {/* Cabeçalho */}
         <div className="flex flex-col items-center text-center mb-8">
           <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center text-on-primary shadow-md mb-4">
-            <span className="material-symbols-outlined text-[32px]">health_and_safety</span>
+            <span className="material-symbols-outlined text-[32px]">
+              {isNewPasswordRequired ? 'lock_reset' : 'health_and_safety'}
+            </span>
           </div>
           <h1 className="text-2xl font-extrabold text-on-surface tracking-tight">
-            Apoio ao Tratamento
+            {isNewPasswordRequired ? 'Definir Nova Senha' : 'Apoio ao Tratamento'}
           </h1>
           <p className="text-sm text-on-surface-variant mt-1.5 font-medium">
-            Gestão e acompanhamento de Apoios ao Tratamento
+            {isNewPasswordRequired
+              ? 'Primeiro acesso: cadastre sua senha definitiva para continuar'
+              : 'Gestão e acompanhamento de Apoios ao Tratamento'}
           </p>
         </div>
 
@@ -73,7 +110,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           </div>
         )}
 
-        {/* Formulário de Login */}
+        {/* Aviso de Primeiro Acesso */}
+        {isNewPasswordRequired && (
+          <div className="mb-6 p-3.5 bg-primary/10 border border-primary/20 rounded-xl text-xs text-primary font-medium flex items-center gap-2.5">
+            <span className="material-symbols-outlined text-[20px]">info</span>
+            <span>
+              Sua conta requer a criação de uma senha segura e definitiva no primeiro login.
+            </span>
+          </div>
+        )}
+
+        {/* Formulário */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <Input
             label="E-mail"
@@ -81,44 +128,83 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             placeholder="seu.email@drogaria.com.br"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            disabled={isNewPasswordRequired}
             required
             icon="mail"
             autoComplete="email"
           />
 
-          <div className="flex flex-col gap-1">
-            <Input
-              label="Senha"
-              type="password"
-              placeholder="••••••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              icon="lock"
-              autoComplete="current-password"
-            />
-            <div className="flex justify-end mt-1">
-              <button
-                type="button"
-                onClick={() => setShowForgotPasswordModal(true)}
-                className="text-xs font-semibold text-primary hover:underline"
-              >
-                Esqueci minha senha
-              </button>
+          {!isNewPasswordRequired ? (
+            <div className="flex flex-col gap-1">
+              <Input
+                label="Senha"
+                type="password"
+                placeholder="••••••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                icon="lock"
+                autoComplete="current-password"
+              />
+              <div className="flex justify-end mt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPasswordModal(true)}
+                  className="text-xs font-semibold text-primary hover:underline"
+                >
+                  Esqueci minha senha
+                </button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <>
+              <Input
+                label="Nova Senha"
+                type="password"
+                placeholder="Mínimo 8 caracteres"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                icon="lock"
+                autoComplete="new-password"
+              />
+              <Input
+                label="Confirmar Nova Senha"
+                type="password"
+                placeholder="Repita a nova senha"
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                required
+                icon="lock_reset"
+                autoComplete="new-password"
+              />
+            </>
+          )}
 
           <Button
             type="submit"
             variant="primary"
             size="lg"
             isLoading={isLoading}
-            loadingText="Autenticando..."
+            loadingText={isNewPasswordRequired ? 'Salvando Nova Senha...' : 'Autenticando...'}
             className="w-full mt-2"
-            icon="login"
+            icon={isNewPasswordRequired ? 'check_circle' : 'login'}
           >
-            Entrar
+            {isNewPasswordRequired ? 'Definir Senha e Entrar' : 'Entrar'}
           </Button>
+
+          {isNewPasswordRequired && (
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              onClick={handleBackToLogin}
+              className="w-full mt-1"
+              icon="arrow_back"
+            >
+              Voltar ao Login
+            </Button>
+          )}
         </form>
       </div>
 
