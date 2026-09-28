@@ -15,6 +15,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [isNewPasswordRequired, setIsNewPasswordRequired] = useState(false);
@@ -30,13 +31,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
     try {
       if (isNewPasswordRequired) {
+        if (!fullName.trim()) {
+          throw new Error('Informe seu nome completo para o cadastro.');
+        }
         if (newPassword.length < 8) {
           throw new Error('A nova senha deve possuir no mínimo 8 caracteres.');
         }
         if (newPassword !== confirmNewPassword) {
           throw new Error('A confirmação de senha não confere.');
         }
-        await completeNewPassword(newPassword, email);
+        await completeNewPassword(newPassword, email, fullName);
         onLoginSuccess();
       } else {
         await login(email, password);
@@ -47,6 +51,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         setIsNewPasswordRequired(true);
         setPassword('');
         setErrorMessage('');
+        if (!fullName) {
+          const suggested = email.split('@')[0].replace(/[._-]/g, ' ');
+          const formatted = suggested.replace(/\b\w/g, (c) => c.toUpperCase());
+          setFullName(formatted);
+        }
         showToast(
           'Primeiro acesso detectado. Por favor, cadastre uma nova senha definitiva.',
           'info',
@@ -97,7 +106,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           </h1>
           <p className="text-sm text-on-surface-variant mt-1.5 font-medium">
             {isNewPasswordRequired
-              ? 'Primeiro acesso: cadastre sua senha definitiva para continuar'
+              ? 'Primeiro acesso: cadastre seu nome e sua senha definitiva para continuar'
               : 'Gestão e acompanhamento de Apoios ao Tratamento'}
           </p>
         </div>
@@ -158,6 +167,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             </div>
           ) : (
             <>
+              <Input
+                label="Nome Completo"
+                placeholder="Seu nome completo"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+                icon="person"
+                autoComplete="name"
+              />
               <Input
                 label="Nova Senha"
                 type="password"

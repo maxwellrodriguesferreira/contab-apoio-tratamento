@@ -179,11 +179,18 @@ export class AuthService {
   /**
    * Conclui a definição de nova senha no Cognito (primeiro acesso)
    */
-  static async completeNewPassword(newPassword: string, email: string): Promise<UserProfile> {
+  static async completeNewPassword(newPassword: string, email: string, fullName?: string): Promise<UserProfile> {
     const cleanEmail = email.trim().toLowerCase();
+    const cleanName = (fullName && fullName.trim().length > 0) ? fullName.trim() : cleanEmail.split('@')[0];
+
     try {
       const result = await confirmSignIn({
         challengeResponse: newPassword,
+        options: {
+          userAttributes: {
+            name: cleanName,
+          },
+        },
       });
 
       if (!result.isSignedIn && result.nextStep.signInStep !== 'DONE') {

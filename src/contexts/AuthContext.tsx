@@ -10,7 +10,7 @@ interface AuthContextType {
   isAttendant: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<UserProfile>;
-  completeNewPassword: (newPassword: string, email: string) => Promise<UserProfile>;
+  completeNewPassword: (newPassword: string, email: string, fullName?: string) => Promise<UserProfile>;
   logout: () => void;
   refreshUser: () => void;
 }
@@ -49,10 +49,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const completeNewPassword = async (newPassword: string, email: string): Promise<UserProfile> => {
+  const completeNewPassword = async (newPassword: string, email: string, fullName?: string): Promise<UserProfile> => {
     setIsLoading(true);
     try {
-      const loggedUser = await AuthService.completeNewPassword(newPassword, email);
+      const loggedUser = await AuthService.completeNewPassword(newPassword, email, fullName);
       setUser(loggedUser);
       showToast(`Senha atualizada com sucesso. Bem-vindo, ${loggedUser.name}!`, 'success', 'Acesso Concluído');
       return loggedUser;
