@@ -14,7 +14,7 @@ const schema = a.schema({
     })
     .authorization((allow) => [
       allow.group('ADMIN'),
-      allow.authenticated().to(['read']),
+      allow.authenticated(),
     ]),
 
   // 2. Atendentes
