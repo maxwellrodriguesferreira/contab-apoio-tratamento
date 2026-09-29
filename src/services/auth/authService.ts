@@ -404,6 +404,13 @@ export class AuthService {
     user.updatedAt = new Date().toISOString();
 
     LocalDatabase.saveUserProfiles(users);
+
+    // Se o usuário editado for o usuário da sessão ativa, atualiza a sessão imediatamente
+    const currentSession = this.getCurrentUser();
+    if (currentSession && (currentSession.id === user.id || currentSession.email.toLowerCase() === user.email.toLowerCase())) {
+      this.setCurrentUser(user);
+    }
+
     CloudSyncService.syncUser(user);
 
     AuditService.logSystemAction(

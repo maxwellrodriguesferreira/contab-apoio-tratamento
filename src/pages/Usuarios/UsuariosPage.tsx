@@ -14,7 +14,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { CloudSyncService } from '../../services/api/cloudSyncService';
 
 export const UsuariosPage: React.FC = () => {
-  const { user: currentUser, isAdmin } = useAuth();
+  const { user: currentUser, isAdmin, refreshUser } = useAuth();
   const { showToast } = useToast();
 
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -93,6 +93,7 @@ export const UsuariosPage: React.FC = () => {
         showToast('Convite Cognito enviado com sucesso.', 'success', 'Usuário Criado');
       }
       setIsModalOpen(false);
+      refreshUser();
       loadData();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao processar usuário.';
@@ -110,6 +111,7 @@ export const UsuariosPage: React.FC = () => {
         `Usuário ${targetUser.name} foi ${targetUser.active ? 'desativado' : 'reativado'}.`,
         'info'
       );
+      refreshUser();
       loadData();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao alterar status.';
@@ -124,6 +126,7 @@ export const UsuariosPage: React.FC = () => {
       AuthService.deleteUser(currentUser, deletingUser.id);
       showToast(`Usuário ${deletingUser.name} excluído com sucesso.`, 'success');
       setDeletingUser(null);
+      refreshUser();
       loadData();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao excluir usuário.';

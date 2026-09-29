@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserProfile } from '../types';
 import { AuthService } from '../services/auth/authService';
+import { CloudSyncService } from '../services/api/cloudSyncService';
+import { LocalDatabase } from '../services/storage/localDatabase';
 import { useToast } from './ToastContext';
 
 interface AuthContextType {
@@ -22,15 +24,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const { showToast } = useToast();
 
+  const syncCurrentSession = () => {
+    const current = AuthService.getCurrentUser();
+    if (current) {
+      const users = LocalDatabase.getUserProfiles();
+      const updated = users.find(
+        (u) => u.id === current.id || u.email.toLowerCase() === current.email.toLowerCase()
+      );
+      if (updated) {
+        AuthService.setCurrentUser(updated);
+        setUser({ ...updated });
+        return;
+      }
+    }
+    setUser(current);
+  };
+
   useEffect(() => {
     try {
-      const current = AuthService.getCurrentUser();
-      setUser(current);
+      syncCurrentSession();
     } catch (e) {
       console.error('Erro ao inicializar sessão de autenticação:', e);
     } finally {
       setIsLoading(false);
     }
+
+    const unsubscribe = CloudSyncService.subscribe(syncCurrentSession);
+    return unsubscribe;
   }, []);
 
   const login = async (email: string, password: string): Promise<UserProfile> => {
@@ -72,8 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const refreshUser = () => {
-    const current = AuthService.getCurrentUser();
-    setUser(current);
+    syncCurrentSession();
   };
 
   const value: AuthContextType = {
