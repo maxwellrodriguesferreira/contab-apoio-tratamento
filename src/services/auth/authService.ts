@@ -418,4 +418,89 @@ export class AuthService {
 
     return user;
   }
+
+  static deleteUser(currentUser: UserProfile, userId: string): UserProfile {
+    if (currentUser.role !== 'ADMIN') {
+      throw new Error('Acesso negado: Somente administradores podem excluir usuários.');
+    }
+
+    if (currentUser.id === userId) {
+      throw new Error('Você não pode excluir o seu próprio usuário logado.');
+    }
+
+    const users = LocalDatabase.getUserProfiles();
+    const index = users.findIndex((u) => u.id === userId);
+    if (index === -1) {
+      throw new Error('Usuário não encontrado.');
+    }
+
+    const [removedUser] = users.splice(index, 1);
+    LocalDatabase.saveUserProfiles(users);
+    CloudSyncService.deleteUser(removedUser.id);
+
+    AuditService.logSystemAction(
+      currentUser.id,
+      currentUser.name,
+      currentUser.role,
+      'USER_DELETED',
+      'USER',
+      removedUser.id,
+      {
+        deletedUserName: removedUser.name,
+        deletedUserEmail: removedUser.email,
+        role: removedUser.role,
+      }
+    );
+
+    return removedUser;
+  }
+
+  static resetUserPassword(
+    currentUser: UserProfile,
+    userId: string,
+    options?: { newPassword?: string }
+  ): { success: boolean; message: string } {
+    if (currentUser.role !== 'ADMIN') {
+      throw new Error('Acesso negado: Somente administradores podem redefinir a senha de usuários.');
+    }
+
+    const users = LocalDatabase.getUserProfiles();
+    const user = users.find((u) => u.id === userId);
+    if (!user) {
+      throw new Error('Usuário não encontrado.');
+    }
+
+    if (options?.newPassword) {
+      if (options.newPassword.length < 8) {
+        throw new Error('A nova senha deve ter no mínimo 8 caracteres.');
+      }
+    }
+
+    user.updatedAt = new Date().toISOString();
+    LocalDatabase.saveUserProfiles(users);
+    CloudSyncService.syncUser(user);
+
+    AuditService.logSystemAction(
+      currentUser.id,
+      currentUser.name,
+      currentUser.role,
+      'PASSWORD_RESET',
+      'USER',
+      user.id,
+      {
+        targetEmail: user.email,
+        targetName: user.name,
+        resetByAdmin: true,
+        customPasswordSet: !!options?.newPassword,
+        timestamp: new Date().toISOString(),
+      }
+    );
+
+    return {
+      success: true,
+      message: options?.newPassword
+        ? `Nova senha definida com sucesso para ${user.name}.`
+        : `Instruções de redefinição de acesso enviadas para o e-mail ${user.email}.`,
+    };
+  }
 }

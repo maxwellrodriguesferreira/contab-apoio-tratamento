@@ -283,6 +283,15 @@ export class CloudSyncService {
     }
   }
 
+  static async deleteUser(id: string): Promise<void> {
+    if (!isCloudConfigured()) return;
+    try {
+      await dataClient.models.UserProfile.delete({ id });
+    } catch (e) {
+      console.warn('Erro ao excluir usuário na nuvem:', e);
+    }
+  }
+
   static async syncAuditLog(log: AuditLog): Promise<void> {
     if (!isCloudConfigured()) return;
     try {

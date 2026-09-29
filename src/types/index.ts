@@ -57,6 +57,7 @@ export type AuditLogAction =
   | 'USER_CREATED'
   | 'USER_UPDATED'
   | 'USER_DISABLED'
+  | 'USER_DELETED'
   | 'PASSWORD_RESET'
   | 'SUPPORT_CREATED'
   | 'SUPPORT_UPDATED'
