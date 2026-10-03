@@ -83,7 +83,7 @@ Atendente (João Silva)
 ## 4. Estrutura do Projeto
 
 ```text
-contab-apoio-tratamento/
+contador-apoio-tratamento/
 ├── amplify/                  # Infraestrutura AWS Amplify Gen 2 (CDK)
 │   ├── auth/                 # Amazon Cognito (User Pool & Groups)
 │   ├── data/                 # Amplify Data Schema & RBAC
@@ -123,8 +123,8 @@ contab-apoio-tratamento/
 ### Passo a passo:
 ```bash
 # 1. Clonar o repositório
-git clone https://github.com/maxwellrodriguesferreira/contab-apoio-tratamento.git
-cd contab-apoio-tratamento
+git clone https://github.com/maxwellrodriguesferreira/contador-apoio-tratamento.git
+cd contador-apoio-tratamento
 
 # 2. Instalar dependências
 npm install
